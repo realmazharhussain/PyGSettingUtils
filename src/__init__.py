@@ -1,1 +1,1 @@
-from .utils import SettingsList as Settings
+from .utils import Settings

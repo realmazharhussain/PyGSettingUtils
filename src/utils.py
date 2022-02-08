@@ -182,7 +182,7 @@ class Section(Common):
         super().__init__()
         self.name = dashify(name)
 
-class SettingsList(Common):
+class Settings(Common):
     def __init__(self, schema_id:str):
         super().__init__()
         self.schema_id = schema_id
