@@ -1,0 +1,5 @@
+#!/bin/env python3
+
+from @py_module_name@ import info
+
+print(info.project_name, 'v' + info.version)
