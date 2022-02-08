@@ -13,7 +13,7 @@ source_files = [
 install_data(source_files, install_dir: py_proj_dir)
 
 configure_file(
-  input: 'create-gschemas.in',
+  input: 'generate-gschema-files.in',
   output: '@BASENAME@',
   configuration: conf,
   install_dir: get_option('bindir'),

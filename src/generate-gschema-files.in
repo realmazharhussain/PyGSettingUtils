@@ -1,0 +1,45 @@
+#!/bin/env python3
+from argparse import ArgumentParser
+import sys, os
+
+from @py_module_name@ import info, Settings
+from @py_module_name@.info import project_name, version
+
+parser = ArgumentParser(description="Create GSchema XML files from a python file")
+parser.add_argument('-v', '--verbose', help='Print more information', action='store_true', dest='verbose')
+parser.add_argument('-q', '--quiet', help='Print less information', action='store_false', dest='verbose')
+parser.add_argument('--version', help='Print version information', action='version', version=f'{project_name} v{version}')
+parser.add_argument('--objects', help="A (comma separated) list of 'GSettingUtils.Settings' objects that contain settings (default: 'settings')", default='settings')
+parser.add_argument('input', help="Python file that contains 'GSettingUtils.Settings' objects")
+parser.add_argument('output', help='Where to save generated gschema file(s)')
+
+args = parser.parse_args()
+
+if args.input.endswith('.py'):
+    sys.path.insert(0, os.path.dirname(args.input))
+    try:
+        exec('import ' + os.path.basename(args.input).removesuffix('.py') + ' as inputfile')
+    except Exception as e:
+        print(f"An error occured while running input file '{args.input}'\n", file=sys.stderr)
+        raise(e)
+    for settings_object in args.objects.split(','):
+        if hasattr(inputfile, settings_object):
+            settings = getattr(inputfile, settings_object)
+            if type(settings) is Settings:
+                # Print Schemas
+                for section in settings, *settings.get_sections(recursive=True):
+                    os.makedirs(args.output, exist_ok=True)
+                    filename = os.path.join(args.output, section.get_schema_id() + '.gschema.xml')
+                    with open(filename, 'w+') as current_file:
+                        if args.verbose:
+                            print(f"Writing '{filename}' ...")
+                        section.print_schema(full=True, recursive=False, file=current_file)
+            else:
+                print(f"Provided object '{settings_object}' is not of type 'GSettingUtils.Settings'", file=sys.stderr)
+                exit(3)
+        else:
+            print(f"Input file '{args.input}' does not contain object '{settings_object}'", file=sys.stderr)
+            exit(2)
+else:
+    print(f"Input file '{args.input}' does not have '.py' extension", file=sys.stderr)
+    exit(1)

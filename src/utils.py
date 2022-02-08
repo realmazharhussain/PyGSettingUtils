@@ -4,7 +4,15 @@ underscorify = lambda string : string.lower().replace(' ', '_').replace('-', '_'
 dashify = lambda string : string.lower().replace(' ', '-').replace('_', '-')
 
 class Setting:
-    def __init__(self, name:str, type:str, default:str, data:list=None, widget_type:str=None):
+    def __init__(self,
+            name:str,
+            type:str,
+            default:str,
+            data:list=None,
+            widget_type:str=None,
+            summary:str=None,
+            description:str=None,
+            ):
         ''' Create a setting object
 
         name: name of the setting
@@ -18,6 +26,8 @@ class Setting:
         self.default = default
         self.data = data
         self.widget_type = widget_type
+        self.summary = summary
+        self.description = description
 
 class Common:
     def __init__(self):
@@ -25,15 +35,34 @@ class Common:
         self.__sections = set()
         self.__settings = set()
 
-    def add_setting(self, name:str, type:str, default:str, data:list=None, widget_type:str=None):
+    def add_setting(self,
+            name:str,
+            type:str,
+            default:str,
+            data:list=None,
+            widget_type:str=None,
+            summary:str=None,
+            description:str=None,
+            ):
         ''' Add a setting to current SettingsList or Section
 
         name: name of the setting
         type: type of setting
         data: choices or range for the value (depends on type)
-        widget_type: the type of widget that should be associated with this setting '''
+        widget_type: the type of widget that should be associated with this setting
+        summary: a short summary of the setting
+        description: detailed description of the setting
+        '''
 
-        setting = Setting(name, type, default, data, widget_type)
+        setting = Setting(
+                name=name,
+                type=type,
+                default=default,
+                data=data,
+                widget_type=widget_type,
+                summary=summary,
+                description=description,
+                )
         setting.parent = self
         self.__settings.add(setting)
         return setting
@@ -48,8 +77,12 @@ class Common:
             if setting.name == name:
                 return setting
 
-    def get_settings(self):
-        return list(self.__settings)
+    def get_settings(self, recursive:bool=False):
+        settings = list(self.__settings)
+        if recursive:
+            for section in self.__sections:
+                settings += section.get_settings(recursive=True)
+        return settings
 
     def add_section(self, name:str):
         section = Section(name)
@@ -67,17 +100,16 @@ class Common:
             if section.name == name:
                 return section
 
-    def get_sections(self):
-        return self.__sections
+    def get_sections(self, recursive:bool=False):
+        sections = list(self.__sections)
+        if recursive:
+            for section in self.__sections:
+                sections += section.get_sections(recursive=True)
+        return sections
+
 
     def get_children(self):
         return list(self.__sections) + list(self.__settings)
-
-    def get_settings_recursively(self):
-        settings = self.get_settings()
-        for section in self.__sections:
-            settings += section.get_settings_recursively()
-        return settings
 
     def get_schema_id(self):
         return self.parent.get_schema_id() + '.' + self.name
@@ -85,7 +117,7 @@ class Common:
     def get_schema_path(self):
         return '/' + self.get_schema_id().replace('.', '/') + '/'
 
-    def print_schema(self, full:bool=False, recursive:bool=False, file=stdout):
+    def print_schema(self, full:bool=True, recursive:bool=False, file=stdout):
         if full:
             print('<?xml version="1.0" encoding="UTF-8"?>', file=file)
             print('<schemalist>', file=file)
@@ -110,6 +142,12 @@ class Common:
             elif setting.type == 'int':
                 key_type = 'i'
             print(' '*4 + f'<key name="{setting.name}" type="{key_type}">', file=file)
+
+            if setting.summary:
+                print(' '*6 + f'<summary>{setting.summary}</summary>', file=file)
+
+            if setting.description:
+                print(' '*6 + f'<description>{setting.description}</description>', file=file)
 
             if key_type == 's':
                 print(' '*6 + f'<default>"{setting.default}"</default>', file=file)
