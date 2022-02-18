@@ -9,6 +9,7 @@ configure_file(
 source_files = [
   '__init__.py',
   'utils.py',
+  'errors.py',
 ]
 install_data(source_files, install_dir: py_proj_dir)
 

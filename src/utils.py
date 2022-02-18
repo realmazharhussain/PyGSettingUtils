@@ -1,4 +1,8 @@
 from sys import stdout
+import gi
+from .errors import WidgetNotFoundError
+
+from gi.repository import Gtk, Gio
 
 underscorify = lambda string : string.lower().replace(' ', '_').replace('-', '_')
 dashify = lambda string : string.lower().replace(' ', '-').replace('_', '-')
@@ -32,8 +36,10 @@ class Setting:
 class Common:
     def __init__(self):
         self.parent = None
+        self.builder = None
         self.__sections = set()
         self.__settings = set()
+        self.__connected = False
 
     def add_setting(self,
             name:str,
@@ -177,6 +183,55 @@ class Common:
         if full:
             print('</schemalist>', file=file)
 
+    def set_builder(self, builder:Gtk.Builder):
+        if type(builder) is Gtk.Builder:
+            self.builder = builder
+        else:
+            raise TypeError("Provided builder is not a Gtk.Builder")
+
+    def get_builder(self):
+        return self.builder or self.parent.get_builder()
+
+    def __connect_setting_to_gsettings(self, setting):
+        get_object = self.get_builder().get_object
+        setting_name = underscorify(setting.name)
+        if setting.type == 'bool':
+            if widget := get_object(setting_name + '_switch'):
+                self.__gsettings.bind(setting.name, widget, 'active', Gio.SettingsBindFlags.DEFAULT)
+                print(f"connected setting '{setting.name}'")
+                return
+        elif setting.type in ['int', 'real']:
+            if setting.widget_type:
+                if widget := get_object(setting_name + '_' + setting.widget_type):
+                    self.__gsettings.bind(setting.name, widget, 'value', Gio.SettingsBindFlags.DEFAULT)        
+                    print(f"connected setting '{setting.name}'")
+                    return
+            else:
+                if widget := (get_object(setting_name + '_spinbutton') or get_object(setting_name + '_scale')):
+                    self.__gsettings.bind(setting.name, widget, 'value', Gio.SettingsBindFlags.DEFAULT)        
+                    print(f"connected setting '{setting.name}'")
+                    return
+
+        raise WidgetNotFoundError(f"could not find a suitable widget for setting '{setting.name}'")
+
+    def connect_to_gsettings(self, force=False):
+        if builder := self.get_builder():
+            if force or not self.__connected:
+                self.__gsettings = Gio.Settings(schema_id=self.get_schema_id())
+                for setting in self.get_settings():
+                    self.__connect_setting_to_gsettings(setting)
+                for section in self.get_sections():
+                    section.connect_to_gsettings()
+                self.__connected = True
+        else:
+            raise ValueError("Tried to connect to gsettings without setting a builder first")
+
+    def connect_to(self, obj):
+        if self.get_builder():
+            pass
+        else:
+            raise ValueError("Tried to connect to an object without setting a builder first")
+
 class Section(Common):
     def __init__(self, name:str):
         super().__init__()
@@ -189,4 +244,7 @@ class Settings(Common):
 
     def get_schema_id(self):
         return self.schema_id
+
+    def get_builder(self):
+        return self.builder
 
